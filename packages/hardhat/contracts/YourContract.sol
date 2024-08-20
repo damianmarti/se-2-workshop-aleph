@@ -15,7 +15,8 @@ import "hardhat/console.sol";
 contract YourContract {
 	// State Variables
 	address public immutable owner;
-	string public greeting = "Building Unstoppable Apps!!!";
+	address public delegate;
+	string public greeting = "Aleph!!!";
 	bool public premium = false;
 	uint256 public totalCounter = 0;
 	mapping(address => uint) public userGreetingCounter;
@@ -40,6 +41,10 @@ contract YourContract {
 		// msg.sender: predefined variable that represents address of the account that called the current function
 		require(msg.sender == owner, "Not the Owner");
 		_;
+	}
+
+	function setDelegate(address _delegate) public isOwner {
+		delegate = _delegate;
 	}
 
 	/**

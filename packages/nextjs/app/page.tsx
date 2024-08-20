@@ -1,13 +1,51 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import type { NextPage } from "next";
+import { parseEther } from "viem";
 import { useAccount } from "wagmi";
 import { BugAntIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
-import { Address } from "~~/components/scaffold-eth";
+import { Address, AddressInput, EtherInput } from "~~/components/scaffold-eth";
+import { useScaffoldEventHistory, useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 
 const Home: NextPage = () => {
   const { address: connectedAddress } = useAccount();
+  const [newMessage, setNewMessage] = useState<string>("");
+  const [newValue, setNewValue] = useState<string>("");
+  const [newDelegate, setNewDelegate] = useState<string>("");
+
+  const { data: greeting } = useScaffoldReadContract({
+    contractName: "YourContract",
+    functionName: "greeting",
+  });
+
+  const { data: delegate } = useScaffoldReadContract({
+    contractName: "YourContract",
+    functionName: "delegate",
+  });
+
+  const { data: counterByAddress } = useScaffoldReadContract({
+    contractName: "YourContract",
+    functionName: "userGreetingCounter",
+    args: [connectedAddress],
+  });
+
+  const { writeContractAsync: writeYourContractAsync } = useScaffoldWriteContract("YourContract");
+
+  const {
+    data: events,
+    isLoading: isLoadingEvents,
+    error: errorReadingEvents,
+  } = useScaffoldEventHistory({
+    contractName: "YourContract",
+    eventName: "GreetingChange",
+    fromBlock: 1n,
+    watch: true,
+    blockData: true,
+    transactionData: true,
+    receiptData: true,
+  });
 
   return (
     <>
@@ -21,21 +59,68 @@ const Home: NextPage = () => {
             <p className="my-2 font-medium">Connected Address:</p>
             <Address address={connectedAddress} />
           </div>
+          <p className="text-center text-lg">{greeting}</p>
+          <p className="text-center text-lg">Counter by address: {counterByAddress?.toString()}</p>
           <p className="text-center text-lg">
-            Get started by editing{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              packages/nextjs/app/page.tsx
-            </code>
+            <EtherInput value={newValue} onChange={setNewValue} />
+            <input
+              type="text"
+              placeholder="The value to set"
+              value={newMessage}
+              onChange={e => setNewMessage(e.target.value)}
+            />
+            <button
+              className="btn btn-primary"
+              onClick={async () => {
+                try {
+                  await writeYourContractAsync({
+                    functionName: "setGreeting",
+                    args: [newMessage],
+                    value: parseEther(newValue),
+                  });
+                } catch (e) {
+                  console.error("Error setting greeting:", e);
+                }
+              }}
+            >
+              Set Greeting
+            </button>
           </p>
           <p className="text-center text-lg">
-            Edit your smart contract{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              YourContract.sol
-            </code>{" "}
-            in{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              packages/hardhat/contracts
-            </code>
+            Delegate:
+            <Address address={delegate} />
+          </p>
+          <p className="text-center text-lg">
+            <AddressInput onChange={setNewDelegate} value={newDelegate} placeholder="Input your address" />
+            <button
+              className="btn btn-primary"
+              onClick={async () => {
+                try {
+                  await writeYourContractAsync({
+                    functionName: "setDelegate",
+                    args: [newDelegate],
+                  });
+                } catch (e) {
+                  console.error("Error delegating:", e);
+                }
+              }}
+            >
+              Set Delegate
+            </button>
+          </p>
+          <p className="text-center text-lg">
+            Events
+            {isLoadingEvents && <span>Loading...</span>}
+            {errorReadingEvents && <span>Error: {errorReadingEvents.message}</span>}
+            {events && (
+              <ul>
+                {events.map((event, i) => (
+                  <li key={i}>
+                    <Address address={event.args.greetingSetter} /> - {event.args.newGreeting}
+                  </li>
+                ))}
+              </ul>
+            )}
           </p>
         </div>
 
